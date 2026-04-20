@@ -24,7 +24,7 @@ sdks:
         interface: tunnel
         endpoint: 127.0.0.1:8188
   - name: comfy
-    channel: 24.04/edge
+    channel: latest/stable
 
 actions:
   verify: |
@@ -93,9 +93,9 @@ sdks:
         interface: tunnel
         endpoint: 127.0.0.1:8188
   - name: uv
-    channel: all/edge
+    channel: latest/stable
   - name: comfy
-    channel: 24.04/edge
+    channel: latest/stable
 
 connections:
   - plug: comfy:venv
@@ -175,7 +175,7 @@ are welcome!
 
 ## License and copyright
 
-Copyright 2025 Canonical Ltd.
+Copyright 2025-2026 Canonical Ltd.
 
 ComfyUI is licensed under the
 [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html).
