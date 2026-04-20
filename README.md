@@ -1,97 +1,11 @@
-<!--
-# SDK README Template for Workshop
+# ComfyUI SDK for Workshop
 
-OVERALL DESIGN (for sdkcraft.yaml description field):
-
-The sdkcraft.yaml `description` field should match the README overview
-paragraph so it can be reused in `sdk info` output. Write it as a short YAML
-multiline string — no sub-headings, no bullet lists. Follow this pattern:
-
-description: |
-  This SDK provides [toolchain/runtime] for [purpose].
-  [Key resources] are persisted on the host to speed up [builds/installs]
-  across workshop updates.
-
-Examples from approved SDKs:
-
-  # go
-  description: |
-    This SDK provides the official Go toolchain for efficient Go
-    development. Module downloads are persisted on the host to speed up builds
-    across workshop updates, and Go environment settings are preserved between
-    workshop updates.
-
-  # node
-  description: |
-    This SDK provides a complete Node.js development environment built from
-    source, with Corepack enabled for flexible package manager choice. Package
-    manager caches are persisted on the host to speed up dependency
-    installations across workshop updates.
-
-README TEMPLATE INSTRUCTIONS:
-
-1. Copy this file to your SDK repository directory as README.md
-2. Replace all placeholders in [SQUARE BRACKETS] with your actual content;
-   replace XYZ, FOO, BAR with real product names
-3. Remove any sections that don't apply to your SDK for simplicity
-4. Delete this comment block before publishing
-5. Test all command examples before publishing
-
-Focus on the SDK's behavior, not the target library/framework documentation.
-Link to upstream docs for product-related specifics.
-
-Do NOT include "Installed components" or "Platforms, channels, versions"
-sections. Component details should be folded into the overview paragraph.
-Channel information belongs in `sdk info`, not the README.
-
-SECTION GUIDE:
-
-Title and description:
-Use the format "[Software Name] SDK for Workshop". Answer: What is it?
-What does it do? Who is it for? Keep it 2-3 compound sentences long.
-Focus on how the SDK affects the user's environment, not on marketing
-language. Avoid phrases like "focus on writing and testing code".
-
-Reference workshop:
-Provide an inline minimal workshop.yaml.
-Explain briefly what the reference demonstrates.
-
-Using the SDK:
-Step-by-step: prerequisite SDKs, project layout, launch, primary workflow.
-All commands must be tested and working. Keep code examples clear about
-whether they run on the host or inside the workshop.
-
-Plugs and slots:
-Document each plug: interface, target/source, purpose.
-Include mounts and persistence details here, and document any tunnels
-alongside other plug types.
-If the SDK relies on resources exposed by other SDKs, say this explicitly.
-Do the same for slots if SDK exposes resources to others.
-Use "workshop updates" (not "restarts" or "sessions") when describing
-what mounts survive.
-
-Documentation and guidance:
-Link to upstream docs.
-
-Community and support:
-Link to forums, support channels, Code of Conduct.
-
-Contributions:
-Link to contribution guides, CONTRIBUTING.md.
-
-License and copyright:
-Include copyright holder, year, license name and link.
-Make sure to include all shipped components.
--->
-
-# [Software Name] SDK for Workshop
-
-[Brief description of what this SDK provides. Should closely match the
-sdkcraft.yaml description. Focus on how the SDK affects the development
-environment: what toolchain/runtime it provides, what it persists on the host,
-and any notable features. Example: "A development environment for Go projects.
-It provides the official Go toolchain, manages module caches via persistent
-mounts, and preserves Go environment settings across workshop updates."]
+This SDK provides ComfyUI as a persistent browser-accessible service for
+node-based diffusion workflows in Workshop. ComfyUI runs with GPU acceleration
+on NVIDIA, AMD, and Intel GPUs with a CPU fallback when no supported GPU is
+available. The Python virtual environment, downloaded models, and generated
+outputs are persisted on the host across workshop updates. Optionally, connect
+the `venv` plug to the `uv` SDK for a uv-managed environment.
 
 ---
 
@@ -101,19 +15,24 @@ A minimal workshop:
 
 ```yaml
 # workshop.yaml
-name: [workshop-name]
-base: ubuntu@[version]  # e.g., ubuntu@24.04
+name: comfy-app
+base: ubuntu@24.04
 sdks:
-  - name: [sdk-name]
-    channel: [channel]  # e.g., 1.24/stable
+  - name: system
+    plugs:
+      comfy-ui:
+        interface: tunnel
+        endpoint: 127.0.0.1:8188
+  - name: comfy
+    channel: 24.04/edge
 
 actions:
-  [action-name]: |
-    [command]
+  verify: |
+    curl -fsS http://127.0.0.1:8188/system_stats
 ```
 
-[One sentence explaining what this demonstrates, e.g., "This demonstrates a
-basic Go build workflow with persistent module caching."]
+This exposes ComfyUI through the browser tunnel, so the UI is accessible at
+`http://localhost:8188` on the host.
 
 ---
 
@@ -121,83 +40,126 @@ basic Go build workflow with persistent module caching."]
 
 ### Prerequisites, project layout
 
-1. [List prerequisites, e.g., "This relies on the `uv` SDK for venv."]
-2. [Suggest expected project directory structure, including source code layout
-   and setup steps needed:]
+1. No prerequisite SDKs are required for the default setup. The `uv` SDK is
+   optional; see [Using a uv-managed venv](#using-a-uv-managed-venv) below.
+2. No specific project layout is needed. ComfyUI reads and writes its own
+   directories under `/home/workshop/comfy/` inside the workshop.
+3. The first launch installs PyTorch and ComfyUI dependencies into the virtual
+   environment via the `setup-project` hook, so it takes longer than subsequent
+   launches. The installed packages are persisted via the `venv` mount plug and
+   reused across workshop updates.
 
-   ```bash
-   [command to clone or prepare sources]
-   ```
+### Access ComfyUI
 
-3. [Describe what side effects may happen during launch and refresh.]
+After `workshop launch`, open `http://localhost:8188` in a browser.
 
-### [Primary workflow task, e.g., "Build the project"]
+- The default ComfyUI workflow is available in the UI. Custom workflows can be
+  loaded by drag-and-drop; see the
+  [ComfyUI repository](https://github.com/comfyanonymous/ComfyUI) for workflow
+  examples and upstream documentation.
+- Generated images are written to `/home/workshop/comfy/output/`, which
+  persists across workshop updates via the `output` mount plug.
 
-Once the workshop is ready:
+### Verify from the command line
 
-```bash
-[workshop run]
-[commands to perform the primary task]
-```
-
-[Explain where outputs go and how they persist across workshop updates.]
-
-### [Secondary workflow task, e.g., "Test and run"]
-
-From within the workshop shell:
+To confirm the ComfyUI service is running, check the user service from a
+workshop shell:
 
 ```bash
 workshop shell
-[test or run commands]
+systemctl --user status comfy
+journalctl --user -u comfy
 ```
 
-[Brief explanation of what this achieves.]
+### Using a uv-managed venv
+
+By default, ComfyUI runs inside a Python virtual environment managed by the
+SDK itself. If you prefer to manage packages with `uv`, you can connect the
+`comfy:venv` plug to the `uv` SDK's `venv` slot.
+
+When connected, the uv SDK's virtual environment is mounted at the comfy SDK's
+venv path. PyTorch and ComfyUI dependencies are still installed into the venv
+on first launch. This lets you manage packages with `uv pip` instead of plain
+`pip`.
+
+```yaml
+# workshop.yaml
+name: comfy-app
+base: ubuntu@24.04
+sdks:
+  - name: system
+    plugs:
+      comfy-ui:
+        interface: tunnel
+        endpoint: 127.0.0.1:8188
+  - name: uv
+    channel: all/edge
+  - name: comfy
+    channel: 24.04/edge
+
+connections:
+  - plug: comfy:venv
+    slot: uv:venv
+```
 
 ---
 
 ## Plugs (resources this SDK consumes)
 
-### `[plug-name]`
-
-- Interface: `mount`
-- Workshop target: `[/path/inside/workshop]`
-- Purpose: [What this persists between workshop updates.]
-
-### `[plug-name]`
+### `gpu`
 
 - Interface: `gpu`
-- Purpose: Grants access to [AMD/NVIDIA] GPU hardware on the host.
+- Purpose: Grants access to host GPU hardware for accelerated inference.
 
--- OR --
+### `venv`
 
-This SDK doesn't define any plugs.
+- Interface: `mount`
+- Workshop target: `$SDK/venv`
+- Purpose: Persists the Python virtual environment (PyTorch and ComfyUI
+  dependencies) across workshop updates.
+
+### `models`
+
+- Interface: `mount`
+- Workshop target: `/home/workshop/comfy/models`
+- Purpose: Persists downloaded model checkpoints, VAEs, LoRAs, and other model
+  files across workshop updates.
+
+### `output`
+
+- Interface: `mount`
+- Workshop target: `/home/workshop/comfy/output`
+- Purpose: Persists generated images and other output files across workshop
+  updates.
 
 ## Slots (resources this SDK provides)
 
-### `[slot-name]`
+### `comfy-ui`
 
-- Interface: `mount`
-- Workshop source: `[/path/inside/workshop]`
-- Purpose: [What resource this exposes to other SDKs]
-
--- OR --
-
-This SDK doesn't define any slots.
+- Interface: `tunnel`
+- Endpoint: `127.0.0.1:8188`
+- Purpose: Exposes the ComfyUI HTTP server to the host for browser access.
+  Connect a matching plug on the `system` SDK to make ComfyUI accessible at
+  the plug address on the host.
 
 ---
 
 ## Documentation and guidance
 
-- [[XYZ] official documentation]([upstream-docs-url])
-- [[XYZ] best practices]([public-website-url])
+- [ComfyUI repository and documentation](https://github.com/comfyanonymous/ComfyUI)
+- [ComfyUI examples](https://comfyanonymous.github.io/ComfyUI_examples/)
+- [Workshop documentation](https://canonical-workshop.readthedocs-hosted.com/latest/)
 
 ---
 
 ## Community and support
 
-- [XYZ] community forum: [Link to upstream forum/community]
-- Please review our [Code of Conduct](https://ubuntu.com/community/ethos/code-of-conduct)
-  before participating.
+- ComfyUI community: [ComfyUI GitHub](https://github.com/comfyanonymous/ComfyUI)
+- Workshop forum:
+  [Workshop Discourse](https://discourse.canonical.com/c/engineering/workshops/34)
+- Please review our
+  [Code of Conduct](https://ubuntu.com/community/ethos/code-of-conduct) before
+  participating.
 
 ---
 
@@ -206,13 +168,14 @@ This SDK doesn't define any slots.
 All contributions, including code, documentation updates, and issue reports,
 are welcome!
 
-- See [CONTRIBUTING]([public-github-url]) for guidelines.
-- Open issues or pull requests on the [official repository]([repo-url]).
+- See `CONTRIBUTING.md` for guidelines.
+- Open issues or pull requests on the official repository.
 
 ---
 
 ## License and copyright
 
-Copyright [START YEAR] [COPYRIGHT HOLDER].
+Copyright 2025 Canonical Ltd.
 
-[Include any required claims, information, and disclaimers for your license.]
+ComfyUI is licensed under the
+[GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html).

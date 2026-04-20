@@ -1,0 +1,46 @@
+name: comfy
+adopt-info: comfy-core
+build-base: ubuntu@24.04
+summary: The most powerful and modular diffusion model GUI.
+description: ComfyUI lets you design and execute advanced stable
+  diffusion pipelines using a graph/nodes/flowchart based interface.
+license: GPL-3.0
+platforms:
+  amd64:
+
+plugs:
+  gpu:
+    interface: gpu
+  venv:
+    interface: mount
+    workshop-target: $SDK/venv
+  models:
+    interface: mount
+    workshop-target: /home/workshop/comfy/models
+  output:
+    interface: mount
+    workshop-target: /home/workshop/comfy/output
+slots:
+  comfy-ui:
+    interface: tunnel
+    endpoint: 8188
+
+parts:
+  comfy-core:
+    plugin: dump
+    source: .
+    override-pull: |
+      VERSION=$(cat "$CRAFT_PROJECT_DIR/VERSION")
+      craftctl set version="$VERSION"
+      curl -fLO "https://github.com/comfyanonymous/ComfyUI/archive/refs/tags/v${VERSION}.tar.gz"
+      tar -xzf "v${VERSION}.tar.gz" --strip-components=1 -C "$CRAFT_PART_SRC"
+      rm -f "v${VERSION}.tar.gz"
+    organize:
+      "*": comfy-core/
+    override-prime: |
+      mkdir -p venv
+      craftctl default
+  services:
+    plugin: dump
+    source: services
+    source-type: local

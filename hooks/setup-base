@@ -1,0 +1,1 @@
+sudo -u workshop mkdir -p /home/workshop/comfy/{models,output,custom_nodes}

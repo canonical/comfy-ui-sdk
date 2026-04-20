@@ -1,0 +1,20 @@
+SERVICE="comfy.service"
+TIMEOUT=10
+ELAPSED=0
+
+sudo -u workshop --login systemctl --user start "$SERVICE"
+
+while [ $ELAPSED -lt $TIMEOUT ]; do
+  SUBSTATE=$(sudo -u workshop --login systemctl --user show "$SERVICE" --value -p SubState)
+  ACTIVE_STATE=$(sudo -u workshop --login systemctl --user show "$SERVICE" --value -p ActiveState)
+
+  if [ "$ACTIVE_STATE" == "active" ] && [ "$SUBSTATE" == "running" ]; then
+    workshopctl set-health okay
+    exit 0
+  fi
+  sleep 1
+  ELAPSED=$((ELAPSED + 1))
+done
+
+workshopctl set-health error "$SERVICE is not in a 'running' substate after $TIMEOUT seconds."
+

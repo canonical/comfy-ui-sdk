@@ -1,0 +1,75 @@
+default_venv="$SDK/venv"
+
+if [ ! -f "$default_venv/pyvenv.cfg" ]; then
+    echo "No virtual environment detected, a default one will be created in $default_venv"
+    echo "Alternatively, add comfy:venv plug connection to an SDK slot that provides a virtual environment."
+    echo "For example, add to your workshop.yaml:"
+    echo "  connections:"
+    echo "    - plug: comfy:venv"
+    echo "      slot: uv:venv"
+
+    sudo apt-get update
+    sudo apt-get install python3-venv python3-pip
+    python3 -m venv --system-site-packages "$default_venv"
+fi
+
+# shellcheck source=/dev/null
+source "$default_venv/bin/activate"
+VERSION="stable"
+GPU_TYPE="none"
+
+if command -v lspci >/dev/null 2>&1; then
+    if lspci | grep -i 'NVIDIA' >/dev/null 2>&1; then
+        GPU_TYPE="nvidia"
+    elif lspci | grep -i 'AMD/ATI' >/dev/null 2>&1; then
+        GPU_TYPE="amd"
+    elif lspci | grep -i 'Intel.*Graphics' >/dev/null 2>&1; then
+        GPU_TYPE="intel"
+    fi
+fi
+
+echo "Detected GPU: $GPU_TYPE"
+
+
+case "$GPU_TYPE" in
+    nvidia)
+        if [ "$VERSION" == "nightly" ]; then
+            pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu129
+        else
+            pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu129
+        fi
+        ;;
+    amd)
+        # Detect installed ROCm version
+        ROCM_VERSION="7.1"  # Default to 7.1
+        if [ -f /opt/rocm/.info/version ]; then
+            ROCM_VERSION=$(cut -d. -f1,2 /opt/rocm/.info/version)
+        fi
+
+        echo "Detected ROCm version: ${ROCM_VERSION}"
+
+        if [ "$VERSION" == "nightly" ]; then
+            pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm"${ROCM_VERSION}"
+        else
+            pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm"${ROCM_VERSION}"
+        fi
+        ;;
+    intel)
+        if [ "$VERSION" == "nightly" ]; then
+            pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/xpu
+        else
+            pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu
+        fi
+        ;;
+    *)
+        echo "No supported GPU detected. Installing CPU-only PyTorch."
+        pip install torch torchvision torchaudio
+        ;;
+esac
+
+pip install -r "$SDK"/comfy-core/requirements.txt
+
+install -D --mode=644 --target-directory ~/.config/systemd/user "$SDK/comfy.service"
+
+systemctl --user daemon-reload
+systemctl --user enable comfy

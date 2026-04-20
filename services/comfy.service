@@ -1,0 +1,12 @@
+[Unit]
+Description=Comfy UI
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -lc "source  /var/lib/workshop/sdk/comfy/venv/bin/activate && python /var/lib/workshop/sdk/comfy/comfy-core/main.py --base-directory=/home/workshop/comfy"
+WorkingDirectory=/project
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
