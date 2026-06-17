@@ -5,6 +5,7 @@ summary: The most powerful and modular diffusion model GUI.
 description: ComfyUI lets you design and execute advanced stable
   diffusion pipelines using a graph/nodes/flowchart based interface.
 license: GPL-3.0
+website: https://github.com/canonical/comfy-ui-sdk
 platforms:
   amd64:
 
